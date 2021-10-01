@@ -1,0 +1,102 @@
+---
+title: "09-09-21_EDA"
+author: "Ajinkya Pawale"
+date: "9/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+```{r}
+ds <- read.csv(
+  "vehicles.txt",
+  header = TRUE,sep =" ",dec=",",numerals="warn.loss",as.is = TRUE,stringsAsFactors =FALSE)
+View(ds)
+```
+
+### Question 1.Converting data to wide format
+```{r}
+dsw = reshape(ds, idvar = c("GEOID","NAME"), timevar = "variable", direction = "wide")
+View(dsw)
+```
+
+### Question 1. Calculating mean number of vehicles owned per household for each county in the data set.
+
+```{r}
+dsw$MeanVehicles = (0*dsw$estimate.cars0+1*dsw$estimate.cars1+2*dsw$estimate.cars2+3*dsw$estimate.cars3+4*dsw$estimate.cars4)/dsw$estimate.total
+dsw$VehiclesOwned = 0*dsw$estimate.cars0+1*dsw$estimate.cars1+2*dsw$estimate.cars2+3*dsw$estimate.cars3+4*dsw$estimate.cars4
+#View(dsw)
+```
+
+### Question 1. Distribution of Mean Vehicles owned per household per county.
+```{r}
+ggplot(dsw, aes(MeanVehicles))+geom_histogram(fill='red',color='black',bins=50) + xlab('Mean Vehicles owned per household for each county') + ggtitle('Distribution Plot for Mean Vehicles')
+```
+
+### Conclusion for Question 1: As you can see from the graph above the data is left-skewed. There is a long tail in the negative direction on the number line. The mean is also to the left of the peak.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+### Question 2. Plot vehicles owned (y-axis) against median income (x-axis) for each county.  Add the linearregression line. How well does the line fit ?
+
+```{r}
+ggplot(dsw , aes(x = estimate.median_income , y = MeanVehicles)) + geom_point() + geom_smooth(method = "lm", se = FALSE) + xlab('Medain Income per household for each county') + ylab('Mean Number of Vehicles Owned') + ggtitle('Median Income vs Mean Vehicles Owned')
+```
+
+### Conclusion for Question 2: As you can see from the graph that there is a relation between Median Income of household vs the Mean Number of Vehicles. It follows a positive correlation pattern. Coming to the linear regression line it does not fit well to the data points as some data points are scattered or far away from the line. Thus, we can say that there exist a correlation but the line is loosely fitting the data.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+### Question 3. Plot vehicles owned against median income using a log scale on the x-axis for each county. Add the linear regression line. Does this line fit any better?
+
+```{r}
+ggplot(dsw , aes(x = estimate.median_income , y = MeanVehicles)) + geom_point() + geom_smooth(method = "lm", se = FALSE) + scale_x_log10() + xlab(' Log of Median Income per household for each county') + ylab('Mean Number of Vehicles Owned') + ggtitle('Log of Median Income vs Mean Number of Vehicles Owned')
+```
+
+### Conclusion for Question 3: As you can see from the graph that there is a relation between the log of Median Income of household vs the Mean Number of Vehicles. It follows a positive correlation pattern. Coming to the linear regression line it fits better compared to the previous plot, the points are more closer to the line. The purpose of the log transformation is to remove the systematic changes in spread, achieving approximate "homoscedasticity." Thus, we can say that the linear regression line for log of median income fits better as compared to the original median income.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+### Question 4. Fit a linear regression that predicts vehicles owned using median income for each county. List the ten counties with the lowest (most negative) residuals. Do these seem like the easiestplaces to live without a car?
+
+```{r}
+dsw.lm_1 = lm(MeanVehicles ~ estimate.median_income, data = dsw)
+dsw.lm_1
+summary(dsw.lm_1)
+```
+
+#### Displaying the Top 10 counties with the lowest residuals
+```{r}
+dsw.lm.df_1 = data.frame(dsw,
+    .resid = residuals(dsw.lm_1),
+    .fitted = fitted.values(dsw.lm_1))
+dsw.lm.df_1 = dsw.lm.df_1[order(dsw.lm.df_1$.resid),]
+head(dsw.lm.df_1[,c('NAME','.resid','MeanVehicles')],10)
+```
+### Conclusion for Question 4: From the above table we can say that the 10 counties listed may seem to the easiest places to live without a car but here the deciding variable is only the median income. Negative residuals says that the predicted value is greater than the actual value, this may indicate that it might be easier way to live without a car but there might be a lot of other factors that might play a role in deciding the places to live without a car, including the cost of living in that county, the amount of public transport facilities, the weather and much more. Thus, solely on the basis of one variable we can't come to a conclusion.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+### Question 5. Fit a linear regression that predicts vehicles owned using log median income for each county. List the ten counties with the lowest (most negative) residuals.  
+
+```{r}
+dsw.lm_2 = lm(MeanVehicles ~ log(estimate.median_income), data = dsw)
+dsw.lm_2
+summary(dsw.lm_2)
+```
+
+#### Displaying the Top 10 counties with the lowest residuals for log scaled X axis
+```{r}
+dsw.lm.df_2 = data.frame(dsw,
+    .resid = residuals(dsw.lm_2),
+    .fitted = fitted.values(dsw.lm_2))
+dsw.lm.df_2 = dsw.lm.df_2[order(dsw.lm.df_2$.resid),]
+#View(dsw.lm.df_2)
+head(dsw.lm.df_2[,c('NAME','.resid','MeanVehicles')],10)
+```
+### Conclusion for Question 5: As you can see that there isn't much change in the top 10 even after scaling the median income, the conclusions drawn for above plot will hold true for this as well. Thus, we can't conlcude that these are the top 10 places to live without a car unless we are given more deciding factors that can be considered.
+
