@@ -1,0 +1,135 @@
+---
+title: "10-07-21_EDA"
+author: "Ajinkya Pawale"
+date: "10/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(stringr)
+library(reshape2)
+library(ggplot2)
+library(MASS)
+```
+
+
+```{r}
+ds1 = read_tsv("data.tsv", na = "\\N", quote = " ")
+ds2 = read_tsv("data-2.tsv", na = "\\N", quote = " ")
+```
+
+```{r}
+ds2 = filter(ds2,titleType=="movie")
+```
+
+
+```{r}
+ds <- merge(ds1, ds2, by = 'tconst')
+data = full_join(x = ds1, y = ds2, by = "tconst", all = TRUE)
+```
+
+```{r}
+nrow(ds)
+nrow(data)
+```
+
+```{r}
+ds = ds %>% drop_na(averageRating)
+ds = ds %>% drop_na(runtimeMinutes)
+ds = ds %>% drop_na(startYear)
+```
+
+```{r}
+nrow(ds)
+```
+
+
+```{r}
+#find Q1, Q3, and interquartile range for values in column runtime column
+Q1 <- quantile(ds$runtimeMinutes, .25)
+Q3 <- quantile(ds$runtimeMinutes, .90)
+IQR <- IQR(ds$runtimeMinutes)
+
+#only keep rows in dataframe that have values within 1.5*IQR of Q1 and Q3
+ds <- subset(ds, ds$runtimeMinutes> (Q1 - 1.5*IQR) & ds$runtimeMinutes< (Q3 + 1.5*IQR))
+```
+
+```{r}
+nrow(ds)
+```
+
+```{r}
+summary(ds)
+```
+
+
+
+
+
+```{r}
+library(mgcv)
+ds.gam = gam(averageRating ~ s(startYear)+s(runtimeMinutes), data=ds,degree=1)
+```
+
+```{r}
+library(broom)
+ds.gam.df = augment(ds.gam)
+```
+
+
+```{r}
+library(mgcv)
+ds.gam.w = gam(averageRating ~ s(startYear)+s(runtimeMinutes), data=ds,degree=1,weights=numVotes)
+```
+
+```{r}
+library(broom)
+ds.gam.w.df = augment(ds.gam.w)
+```
+
+**Inference: Initially, data was modified by removing NA values for runtimeMinutes, startYear and averageRatings. Later on, the outliers were removed from the runtimeMinutes by taking the interquantile range between quantiles 0.25-0.90, since the runtimeMinutes outliers are not needed and will not contribute much to the data. While fitting model with gam and lm, gam produced better results for residuals as compared to lm. Moreover, gam with smoothing transformation for both runtimeMinutes, startYear and degree 1 produced the best results for the fit. I also tried to weight by number of votes but the fit for that was not better than the normal fit without votes, thus using weights did not help.**
+
+
+
+
+
+```{r fig.width=8, fig.height=7}
+ggplot(ds, aes(x = runtimeMinutes, y = averageRating)) + geom_point(alpha=0.3,color = 'blue') +  geom_smooth(method='gam',color='black',se=FALSE) + facet_wrap(~cut_width(ds$startYear,10))+ xlab("Runtime Minutes") + ylab("Average Rating")  +
+  ggtitle("Variation in Average Rating with respect to Runtime Minutes Faceted by Year") + theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5)) + theme(axis.title=element_text(size=20),axis.text=element_text(size=14), axis.text.x=element_text(size=12))
+```
+
+**Inference:** 
+**- 1895 to 1905: The number of points here are less but the trend says that as the Runtime length increases the Average Rating decreases**
+**- 1905 to 1915: Here the trend suggests that as the Runtime length increases there is a slight increase in the Average Ratings**
+**- 1915 to 1925: Here the trend is similar to the previous one, Runtime length increases there is a slight increase in the Average Ratings**
+**- 1925 to 1955: Similar to above trend**
+**- 1955 to 1965 there is a slight decrease in in the rating of the movie for lower Runtime i.e. 60 minutes or so.**
+**- From 1955 to 1965 we see a trend, as the Runtime minutes increase we have a slight increase in average rating, similar trend can be observed in the next decade that is 1965 to 1975**
+**- From 1975 to 1985, 1985 to 1995 and 1995 to 2005, all these three decades we can observe a decrease in the ratings when the length of the movies are less than 100 minutes**
+
+
+```{r}
+ds.grid = expand.grid(startYear= 1896:2021,runtimeMinutes= 49:152)
+ds.predict = predict(ds.gam,newdata = ds.grid)
+ds.plot.df = data.frame(ds.grid, averageRatings = as.vector(ds.predict))
+```
+
+```{r}
+nrow(ds.grid)
+```
+
+
+
+```{r}
+library(metR)
+ggplot(ds.plot.df , aes(x=startYear, y=runtimeMinutes,z=averageRatings,fill=averageRatings)) + geom_raster() + scale_fill_distiller(palette='RdYlBu') + geom_contour(bin_width = 20) + geom_text_contour(bin_width=20) + labs(fill='Average Ratings') + xlab("Start year") + ylab("Runtime Minutes") +
+  ggtitle("Variation in Average Rating with respect to Runtime Minutes and Start Year") + theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5)) 
+```
+
+**Inference: From the contour plot we can say that average rating is high when the run time length is less i.e. around 50-60 and the start year is greater than 1920. Secondly, for movies before 1920 the average ratings is less. For start year between 1960 to 2000 and run time length between 75 to 100 the average ratings is close to 6. Similarly, we can see different trends at different areas in the plot. Contour plots give more insights into the relationship between the 3 variables.**
+
+
+**Do longer movies tend to get higher IMDB ratings, after accounting for their year of release ?**
+**Conclusion: We can't really say that longer movies tend to get higher IMDB ratings based on their year of release, because there is a variation in the average ratings for longer movies from 1900 to 2020 and it is not a constant increase. For year 1900 - 1920 and high run time, the average ratings is around 5.5, for year 1920-1960  and high run time, the average rating is around 6.4. Similarly for year 1960 to 2000 and high run time, the average ratings is around 6. Finally, for year 2000 -2021 and high run time, the average ratings is around 6.4. Thus, we can't come to a concrete solution that longer movies tend to get higher IMDB ratings, after accounting for their year of release.**

@@ -1,0 +1,54 @@
+---
+title: "EDA_Assignment-1"
+author: "Ajinkya Pawale"
+date: "9/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+library(lattice)
+```
+
+## R Markdown
+
+```{r}
+DrivData = read_excel("/Users/ajinkyapawale/Stat-S670/DrivingdataAll.xls")
+#View(DrivData)
+```
+
+
+```{r}
+sign_top = dplyr::filter(DrivData, OMR_Version=="Sign Top")
+sign_bottom = dplyr::filter(DrivData, OMR_Version=="Sign Bottom")
+```
+
+
+```{r}
+DrivData$Response_Variable = DrivData$Odom_Reading_2 - DrivData$Odom_Reading_1
+```
+
+
+```{r}
+ggplot() + 
+  geom_histogram(data =DrivData , aes(x = Response_Variable), fill = 'pink') + xlab('Response Variable (Odometer Difference)') + ggtitle('Histogram distribution of Response Variable')
+
+```
+
+```{r}
+ggplot(DrivData,aes(sample=Response_Variable)) + stat_qq() + stat_qq_line()+ ggtitle("Normal QQ plot for Repsonse Variable")
+```
+
+
+```{r} 
+ggplot(DrivData,aes(sample=Response_Variable)) + stat_qq(distribution = qunif)  + ggtitle('Uniform QQ plot for Response Variable')
+
+```
+
+Conclusion:
+The data is uniformly distributed from the above observations. Most of the real world data is not uniformly distributed. The response variable i.e. the difference two odometer readings should have a variation in the data. In general the miles traveled will be affected my many reasons such as the region, weather and much more. Thus the hypothesis that signing at the top would make customers more likely to tell the truth will not hold true as the data is most likely fraudulent and this data can't be relied for statistical analysis.
+
+

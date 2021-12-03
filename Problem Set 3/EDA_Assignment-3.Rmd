@@ -1,0 +1,123 @@
+---
+title: "09-20-21_EDA"
+author: "Ajinkya Pawale"
+date: "9/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(NHANES)
+```
+
+
+```{r}
+##View(NHANES)
+```
+
+### Extracting the required columns from the dataset
+```{r}
+dn = select(NHANES,c(BPSysAve,Age,Weight,Height,Gender))
+#View(dn)
+```
+
+```{r}
+summary(dn)
+```
+
+### Distribution of the continuous variables in the dataset
+```{r}
+library(Hmisc)
+hist.data.frame(select(dn,c(BPSysAve,Weight,Height)))
+```
+
+### Imputing the missing values. BPSysAve and Weight are imputed with mean because they follow a normal distribution. Height is left skewed hence it is imputed with median.
+```{r}
+dn$BPSysAve=ifelse(is.na(dn$BPSysAve),mean(dn$BPSysAve,na.rm=T),dn$BPSysAve)
+dn$Weight=ifelse(is.na(dn$Weight),mean(dn$Weight,na.rm=T),dn$Weight)
+dn$Height=ifelse(is.na(dn$Height),median(dn$Height,na.rm=T),dn$Height)
+```
+
+```{r}
+summary(dn)
+```
+
+
+### Relationship between BPSysAve and Age
+
+```{r}
+cbPalette <- c( "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+ggplot(dn,aes(y=BPSysAve,x=Age,color=Gender)) + geom_point(alpha = 0.3)  + facet_wrap(~Gender) + scale_color_manual(values=cbPalette) + 
+  geom_smooth(method='loess',color='black',se=FALSE,method.args=list(family='symmetric',degree=2,span=0.5)) + xlab('Age (in years)') + ylab('Average of 3 measurements of systolic blood pressure') + ggtitle('Blood Pressure vs Age (Facet by Gender)')
+```
+
+### Fitting a model
+```{r}
+cbPalette <- c( "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+dn.a= loess(BPSysAve ~ Age, data = dn,method.args=list(family='symmetric',degree=2,span=0.5))
+summary(dn.a)
+library(broom)
+dn.a.df = data.frame(dn,.resid=residuals(dn.a), .fitted = fitted.values(dn.a))
+##View(dn.a.df)
+ggplot(dn.a.df, aes(x=Age,y= .resid,color=Gender)) + geom_point(alpha=0.5) + geom_smooth(method='gam',color='black') + facet_wrap(~Gender) + scale_color_manual(values=cbPalette) + xlab('Age (in years)') + ylab('Residual') + ggtitle('Residual plot for Blood Pressure vs Age (Facet by Gender)')
+```
+
+### Conclusion: 
+### 1) After trying out different combinations of fit, I found out that degree 2, span 0.5 and a symmetric loess are good              combinations for the trend line.
+### 2) From the trend graph you can say that for women at the start the blood pressure decreases till the age of 20, after 20          there is a increase in value for blood pressure with age.
+### 3) For men there is a very small decline within 0-10 age group, from 10-20 it is close to same, after 20 it keeps on               increasing till the end. 
+### 4) From Residual plot we can say that since the points are scattered evenly below and above x=0, there is a relationship           between Age and Blood Pressure. The relationship is not completely positive, the trend is explained in the above points. 
+    
+
+
+
+### Relationship between BPSysAve and Height
+```{r}
+cbPalette <- c( "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+ggplot(dn,aes(y=BPSysAve,x=Height,color=Gender)) + geom_point(alpha = 0.2)  + facet_wrap(~Gender)  +scale_color_manual(values=cbPalette) + geom_smooth(method='loess',color='black',se=FALSE,method.args=list(family='symmetric',degree=1)) + xlab('Height (in centimeters)') + ylab('Average of 3 measurements of systolic blood pressure') + ggtitle('Blood Pressure vs Height (Facet by Gender)')
+```
+
+### Fitting a model
+```{r}
+dn.h= loess(BPSysAve ~ Height, data = dn,method.args=list(family='symmetric',degree=1))
+summary(dn.h)
+dn.h.df = data.frame(dn,.resid=residuals(dn.h), .fitted = fitted.values(dn.h))
+##View(dn.a.df)
+ggplot(dn.h.df, aes(x=Height,y= .resid,color=Gender)) + geom_point(alpha=0.5) + geom_smooth(method='gam',color='black') + facet_wrap(~Gender) + scale_color_manual(values=cbPalette) + xlab('Height (in centimeters)') + ylab('Residual') + ggtitle('Residual plot for Blood Pressure vs Height (Facet by Gender)')
+```
+
+### Conclusion: 
+### 1) After trying out different combinations of fit, I found out that degree 1 and a symmetric loess are good                        combinations for the trend line.
+### 2) From the trend graph you can say that for women at the start the blood pressure decreases till the Height of 133 cms,           after 133 cms there is a increase in value for blood pressure till 155-156 cms and at the end it decreases again.
+### 3) For men there is decline till the Height of 133 cms, after 133 cms it increasing and towards the end it becomes constant.
+### 4) More importantly this trend is based on the loess line alone, which is not a perfect fit for the points as the points are        cluttered on one side and there no such relationship in general between Height and Blood Pressure.
+### 5) From Residual plot we can say that since the points follow some sort of funnel pattern, the relationship between Height         and Blood Pressure will be difficult to explain. If the residual plots follow some pattern then there is no such                relationship between the variables involved.
+
+
+
+### Relationship between BPSysAve and Weight
+
+```{r}
+cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+ggplot(dn,aes(y=BPSysAve,x=Weight,color=Gender)) + geom_point(alpha = 0.3)  + facet_wrap(~Gender) +scale_color_manual(values=cbPalette) + 
+   geom_smooth(method='loess',color='black',se=FALSE,method.args=list(family='symmetric',degree=2)) + xlab('Weight (in Kilograms)') + ylab('Average of 3 measurements of systolic blood pressure') + ggtitle('Blood Pressure vs Weight (Facet by Gender)')
+```
+
+### Fitting a model
+```{r}
+dn.w= loess(BPSysAve ~ Weight, data = dn,method.args=list(family='symmetric'),degree=2)
+summary(dn.w)
+dn.w.df = data.frame(dn,.resid=residuals(dn.w), .fitted = fitted.values(dn.w))
+ggplot(dn.w.df, aes(x=Weight,y= .resid,color=Gender)) + geom_point(alpha=0.5) + geom_smooth(method='gam',color='black') + facet_wrap(~Gender) + scale_color_manual(values=cbPalette) + xlab('Weight (in Kilograms)') + ylab('Residual') + ggtitle('Residual plot for Blood Pressure vs Weight (Facet by Gender)')
+```
+
+### Conclusion: 
+### 1)  After trying out different combinations of fit, I found out that degree 2 and a symmetric loess are good                        combinations for the trend line.
+### 2)  From the trend graph you can say that for women at the start the blood pressure decreases till the Weight of 45-50 kgs,         after 50 kgs there is a increase in value for blood pressure till 160 kgs and at the end it decreases again.
+### 3)  For men there is decline till the Weight till 38-40 kgs, after 48 kgs it increasing and towards the end after 150 kgs it         becomes constant.
+### 4)  More importantly this trend is based on the loess line alone, which is not a perfect fit for the points as the points           are cluttered on one side and there no such relationship in general between Weight and Blood Pressure.
+### 5)  From Residual plot we can say that since the points follow some sort of cluttering pattern, the relationship between            Weight and Blood Pressure will be difficult to explain. If the residual plots follow some sort of pattern then there is         no such relationship between the variables involved.
+    
+    
+### Final Inference: Thus from the three conlusions we can say that Age is a good factor to explain the varaibility in Blood Pressure but Weight and Height are not good enough to explain the variablility in the Blood Pressure.

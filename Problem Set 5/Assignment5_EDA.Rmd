@@ -1,0 +1,175 @@
+---
+title: "Assignment5_EDA"
+author: "Ajinkya Pawale"
+date: "10/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73",
+"#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+library(stringr)
+library(reshape2)
+library(ggplot2)
+library(MASS)
+library(jpeg)
+library(RCurl)
+library(grid)
+library(png)
+library(GGally)
+```
+
+
+```{r}
+ds = read.csv('curry2015-16.txt',sep=' ',header=TRUE)
+```
+
+```{r}
+ds = ds[,c('EVENT_TYPE','SHOT_MADE_FLAG','SHOT_DISTANCE','LOC_X','LOC_Y')]
+```
+
+```{r}
+summary(ds)
+```
+
+## Question 1:
+
+```{r}
+court_img = "https://miro.medium.com/max/1400/1*2QjYg-iJ54sT1ywAoVxtaw.png"
+court_final = rasterGrob(readPNG(getURLContent(court_img)),
+           width=unit(1,"npc"), height=unit(1.5,"npc"))
+ 
+ggplot(ds, aes(x=LOC_X, y=LOC_Y)) + 
+      annotation_custom(court_final, -250, 250, -50, 420) +
+      geom_point(aes(colour = EVENT_TYPE)) +
+      coord_fixed( xlim = c(-250, 250), 
+      ylim= c(-80, 750)) + scale_color_manual(values = c("#999999", "#CC79A7")) + xlab('Location of X') + ylab('Location of Y') + labs(color='Event Type') + ggtitle("The location of Curry’s shots")
+```
+
+**Conclusion:** As you can see from the above graph that the shot distribution is evenly spread out for both made shot and missed shot. There is no such strong location on the court where the distribution of one is much greater than the other. 
+
+
+
+
+## Question 2:
+
+**Plotting the Shot Distance against the Shot Made Flag to see the curve between the two variables. First one considers the Shot Distance enitrely and the second one considers the shot distance <40 as there are less numbers of points after 40.**
+```{r}
+ggplot(ds, aes(x = SHOT_DISTANCE, y = SHOT_MADE_FLAG)) +
+geom_jitter(height = 0.1, width = 0.25) +
+geom_smooth(method = "glm",
+method.args = list(family = "binomial")) + xlab('Shot Distance') + ylab('Shot Made Flag (Made/Missed)') + ggtitle('Shot Distance vs the Shot Made Flag')
+
+ggplot(filter(ds,SHOT_DISTANCE<40), aes(x = SHOT_DISTANCE, y = SHOT_MADE_FLAG)) +
+geom_jitter(height = 0.1, width = 0.25) +
+geom_smooth(method = "glm",
+method.args = list(family = "binomial")) + xlab('Shot Distance (less than 40)') + ylab('Shot Made Flag (Made/Missed)') + ggtitle('Shot Distance vs the Shot Made Flag')
+```
+
+**Conclusion:** The above plot tells us that as the shot distance increases the chances of shot made goes on decreasing or in other words shot is missed, which actually makes sense because logically it should be difficult to get the shot in from a long distance on the court. As you can see for shorter shot distance the Shot Made Flag is towards '1' i.e. Shot Made, which also holds true according to our logic. 
+
+
+**Fitting a logistic regression to predict whether the shot is made, using the single predictor
+SHOT DISTANCE.**
+
+```{r}
+Target.logit = glm(SHOT_MADE_FLAG ~ SHOT_DISTANCE,
+family = binomial, data = ds)
+summary(Target.logit)
+```
+
+Logistic Regression Curve for Single Predictor:
+**logit[P(Shot_Made_Flag)] = 0.545 - 0.0304 × SHOT_DISTANCE**
+
+
+
+
+## Question 3:
+
+**Plotting the Residuals against the Fitted values for Single Predictor Model**
+```{r}
+target.model.df = ds
+target.model.df$.fitted = fitted.values(Target.logit)
+target.model.df$.resid = residuals(Target.logit, type = "response")
+
+ggplot(target.model.df, aes(x = .fitted, y = .resid)) +
+geom_point() +
+geom_smooth(method = "loess", method.args = list(degree = 1),se=FALSE) +
+xlab("Fitted values") + ylab("Residuals") + ggtitle('Residuals vs Fitted Values for Single Predictor Model')
+
+```
+
+**Plotting the Residuals against the Shot Distance**
+```{r}
+ggplot(target.model.df, aes(x = SHOT_DISTANCE, y = .resid)) +
+geom_point() +
+geom_smooth(method = "loess", method.args = list(degree = 1),se=FALSE) +
+xlab("Shot Distance") + ylab("Residuals") + ggtitle("Residuals vs Shot Distance for Single Predictor Model")
+```
+
+**Conclusion:** Here from the above plot we can say that, at the start the model is towards postive residual till a shot distance of around 3, then it goes to negative residual after shot distance of 3 and continues to be negative till 20, after 20 the residual again becomes positive and remains positive till the end. This sudden change of residuals from positive to negative and again positive suggests that the model keeps overestimating and underestimating the values which is not a good indicator.
+
+
+## Question 4:
+
+**Correlation Plot**
+```{r}
+ggpairs(ds)
+```
+
+**Fitting a better logistic regression model to predict whether the shot is made, using the predictors
+SHOT DISTANCE, LOC_X and LOC_Y.**
+```{r}
+Target.logit2 = glm(SHOT_MADE_FLAG ~  log(SHOT_DISTANCE+0.1) + LOC_Y + LOC_X,
+family = binomial, data = ds)
+summary(Target.logit2)
+```
+
+Logistic Regression Curve for Multiple Predictor:
+**logit[P(Shot_Made_Flag)] = 0.672 - 0.283 × log(SHOT_DISTANCE+0.1) + 0.00005 x LOC_Y - 0.000595 x LOC_X**
+
+
+
+**Plot of Residuals vs Fitted values for multiple predictors**
+```{r}
+target.model.df2 = ds
+target.model.df2$.fitted = fitted.values(Target.logit2)
+target.model.df2$.resid = residuals(Target.logit2, type = "response")
+
+ggplot(target.model.df2, aes(x = .fitted, y = .resid)) +
+geom_point() +
+geom_smooth(method = "loess", method.args = list(degree = 1)) +
+xlab("Fitted values") + ylab("Residuals") + ggtitle("Residuals v Fitted Values for Multiple Predictors")
+
+```
+
+**Plot of residuals vs Lcoation Y for multiple predictors**
+```{r}
+ggplot(target.model.df2, aes(x = LOC_Y, y = .resid)) +
+geom_point() +
+geom_smooth(method = "loess", method.args = list(degree = 1),se=FALSE) +
+xlab("Location Y") + ylab("Residuals") + ggtitle("Residuals v Location Y for Multiple Predictors")
+```
+
+
+**Plot of residuals vs Location X for multiple predictors**
+```{r}
+ggplot(target.model.df2, aes(x = LOC_X, y = .resid)) +
+geom_point() +
+geom_smooth(method = "loess", method.args = list(degree = 1),se=FALSE) +
+xlab("Location X") + ylab("Residuals") + ggtitle("Residuals v Location X for Multiple Predictors")
+```
+
+
+**Plot of residuals vs Shot Distance for multiple predictors**
+```{r}
+ggplot(target.model.df2, aes(x = SHOT_DISTANCE, y = .resid)) +
+geom_point() +
+geom_smooth(method = "loess", method.args = list(degree = 1),se=FALSE) +
+xlab("SHOT DISTANCE") + ylab("Residuals") + ggtitle("Residuals v Shot Distance for Multiple Predictors")
+```
+
+**Conclusion:** First I saw the correlation between the target variable i.e. Shot Made and all the remaining variables. Shot Distance and Location Y have a good negative correlation with Shot Made whereas Location X has a low negative correlation. I came up with a model to add all the three predictors. The reason I considered log transform for shot distance was because it did not give a good result individually, I added 0.1 to log transform because the values in shot distance were 0 which would have caused problems while doing transform. Finally, comparing the residual plot against shot distance we can see that the curve is centered around 0 till shot distance 25 which is a good improvement as compared to the previous single predictor model. Although there is a sudden dip after shot distance 40 it is primarily because of the outlier points present at a larger shot distance which can be ignored. Overall, the fit is better as compared to the single predictor. Also, if we compare the AIC values for the single predictor it was 2175 and for multiple it came down to 2160.8 which also indicates that it is a better model.
+
