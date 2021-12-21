@@ -1,0 +1,109 @@
+---
+title: "Problem Set 6"
+author: "Ajinkya"
+date: "11/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library('tidyverse')
+library('GGally')
+library('MASS')
+library('broom')
+library('rcompanion')
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+
+```{r}
+barley_yield <- read.table("minnesota.barley.yield.txt", header = TRUE)
+```
+
+
+## Question 1:
+
+```{r fig.width=8}
+ggplot(barley_yield, aes(x = year, y = yield,  color = gen)) + geom_line() + geom_point()+
+      theme(axis.text.x = element_text(size = 5)) + facet_wrap(~site) + labs(title = 'Barley yield vs Year faceted by location', color = 'Barley Type') + xlab('Year') + ylab('Yield (in bushels per acre)')+ theme(axis.text.x=element_text(size=12),
+        axis.title.x=element_text(size=14,face="bold"), axis.text.y=element_text(size=12), axis.title.y=element_text(size=14,face="bold"),plot.title=element_text(size=16,face="bold")) + theme(axis.text.x = element_text(angle = 90)) 
+
+```
+
+#### Analysis for Quesiton 1:
+
+**When looking at successive years, it is more common for the yields to increase at some locations and decrease at others. Considering the trend from 1933 to 1935: For locations like StPaul, Waseca we can see that there is a decrease in the yields from 1933 to 1934 and increase in the yields from 1934 to 1935 for each Barley type. Although, for Crookston, GrandRapids and Duluth from 1933 to 1934 we can see an increase in the yields and decrease in the yields from 1934 to 1935 for each Barley type. For Morris the data for 1933 and 1934 is missing as we can see from above plots, it doesn't have points for 1933-34. Thus, we can't say anything for Morris in 1933 and 1934 but from 1932 to 1935, there is a varying trend in Morris for each Barley type, a few have increased, a few have decreased and a few have stayed close to same.** 
+
+
+
+## Question 2
+
+
+```{r fig.width=11}
+ggplot(barley_yield, aes(y = yield, x = gen )) + geom_point()+ facet_wrap(~site) + theme(axis.text.x = element_text(angle = 90)) + labs(title = 'Barley yield vs Variety faceted by Location') + xlab('Variety') + ylab('Yield (in bushels per acre)') +   theme(axis.text.x=element_text(size=12),
+        axis.title.x=element_text(size=14,face="bold"), axis.text.y=element_text(size=12), axis.title.y=element_text(size=14,face="bold"),plot.title=element_text(size=16,face="bold")) + theme(axis.text.x = element_text(angle = 90)) 
+```
+
+
+```{r fig.width=6, fig.height=6}
+ggplot(barley_yield, aes(x = year, y = yield)) + geom_point()+
+      theme(axis.text.x = element_text(size = 5)) + facet_wrap(~gen) + labs(title = 'Barley yield vs Year faceted by Variety', color = 'Location') + xlab('Year') + ylab('Yield (in bushels per acre)')+  theme(axis.text.x=element_text(size=12),
+        axis.title.x=element_text(size=14,face="bold"), axis.text.y=element_text(size=12), axis.title.y=element_text(size=14,face="bold"),plot.title=element_text(size=16,face="bold")) + theme(axis.text.x = element_text(angle = 90)) 
+
+```
+
+```{r fig.height=3}
+ggplot(barley_yield, aes(x = year, y = yield)) + geom_point()+
+      theme(axis.text.x = element_text(size = 5)) + facet_wrap(~site) + labs(title = 'Barley yield vs Year faceted by Location', color = 'Location') + xlab('Year') + ylab('Yield (in bushels per acre)')+ theme(axis.text.x=element_text(size=12),
+        axis.title.x=element_text(size=14,face="bold"), axis.text.y=element_text(size=12), axis.title.y=element_text(size=14,face="bold"),plot.title=element_text(size=16,face="bold")) + theme(axis.text.x = element_text(angle = 90)) 
+
+```
+
+
+
+```{r}
+barley.lm2 = lm(yield ~ gen +site*year, data = barley_yield)
+summary(barley.lm2)
+```
+
+#### Variance captured in the model
+
+```{r}
+var(fitted.values(barley.lm2))/var(barley_yield$yield)
+var(fitted.values(barley.lm2))/(var(fitted.values(barley.lm2)) + var(residuals(barley.lm2)))
+```
+
+
+#### Analysis for Question 2:
+
+**In order to see the relationship between the three explanatory variables gen, site and year, I tried to plot graphs of all possible pairs within them along with the response variable i.e. yield. For gen on x axis and site as a facet w.r.t yield as the y-axis, the plot above was scattered and did not have much variation. Similarly for gen and year w.r.t yield it did not have much variation in the scatter plot above. Lastly, site and year w.r.t yield had some sort of trend/variation in it thus considering an interaction between them made sense. Thus in my model, I have kept gen as a single term and added the interaction term of site x year with yield as my target variable**. 
+
+
+
+## Question 3:
+
+
+```{r}
+barley.df = barley_yield
+barley.df$.resid = residuals(barley.lm2)
+barley.df$.fitted = fitted.values(barley.lm2)
+```
+
+```{r fig.height=5}
+barley.df <- barley.df %>% filter(year %in% c(1931,1932))
+
+ggplot(barley.df, aes(x = .resid, y = gen,color =as.factor(year))) + geom_point()+
+  facet_wrap(~site) +
+  theme(axis.text.y = element_text(size = 7)) +
+  labs(title = 'Residual values of yield for Barley type at all locations',color='Year') + ylab("Barley Type") + theme(axis.text.x=element_text(size=10),
+        axis.title.x=element_text(size=12,face="bold"), axis.text.y=element_text(size=10), axis.title.y=element_text(size=12,face="bold"),plot.title=element_text(size=14,face="bold"))
+```
+
+
+#### Analysis for Question 3:
+
+**Here, once we have fit the model on the entire data, we filter the years 1931 and 1932 for our case. After that is done, we plot the graph of residual vs barley type with the location/site as our facet variable and the year is distinguished by the color of the points. From the above plot we can see  that, for Morris the residual values are shifted for 1931 and 1932 as compared to other locations i.e. the residuals of 1932 are higher as compared to 1931 which is not the case for other locations. Thus, we can say that there is an anomaly in the data. But it doesn't make sense to swap the 1931 - 1932 data for Morris as the data for 1933 and 1934 is missing thus drawing conclusions before carefully evaluating the data is not feasible**.
