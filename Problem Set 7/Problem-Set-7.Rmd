@@ -1,0 +1,112 @@
+---
+title: "Problem-Set-7"
+author: "Ajinkya Pawale"
+date: "11/29/2021"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73",
+"#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+library(stringr)
+library(reshape2)
+library(ggplot2)
+library(MASS)
+library(jpeg)
+library(RCurl)
+library(grid)
+library(png)
+library(GGally)
+library(maps)
+library(gridExtra)
+library(ggthemes)
+library(socviz)
+library(mapproj)
+library(dplyr)
+library(usmap)
+```
+
+
+
+### Data Preprocessing and Import
+
+```{r}
+covid = read.csv('eday-covid.txt',sep=' ',header=TRUE)
+```
+
+```{r}
+covid.cases = dplyr::select(covid, fips,cases)
+covid.cases <- na.omit(covid.cases) 
+```
+
+
+```{r }
+covid.deaths = dplyr::select(covid, fips,deaths)
+covid.deaths <- na.omit(covid.deaths) 
+```
+
+
+### Question 1
+
+```{r}
+plot_usmap(regions = "counties" , data = covid.cases , values = "cases", na = 0 )  + labs(title = ~bold("Covid Cases by Counties in US")) + 
+    theme(panel.background = element_rect(colour = "black"))+
+    scale_fill_continuous(low = "lightblue", high ="darkblue", 
+                          name = "Covid Cases",label = scales::comma) 
+```
+
+
+### Question 2
+
+
+```{r }
+plot_usmap(regions = "counties" , data = covid.deaths , values = "deaths", na = 0 )  + labs(title = ~bold("Covid Deaths by Counties in US")) + 
+    theme(panel.background = element_rect(colour = "black"))+
+    scale_fill_continuous(low = "lightyellow", high ="darkorange", 
+                          name = "Covid Deaths",label = scales::comma)
+```
+
+
+
+
+### Trying the same 2 plots with ggplot and joins (Code in Rmd)
+
+```{r echo=FALSE}
+us_county = map_data('county')
+```
+```{r echo=FALSE}
+covid$state.x = tolower(covid$state.x)
+covid$county= tolower(covid$county)
+```
+
+
+```{r echo=FALSE}
+us_county_covid = left_join(us_county, covid, by = c("subregion"="county","region"="state.x"))
+```
+
+
+```{r }
+ggplot(us_county_covid, aes(x = long, y = lat, group = group, fill = cases)) + geom_polygon(color = "black", size = 0.25) +coord_map(projection = "lambert", lat0 = 30, lat1 = 40) +labs(title = "Covid Cases by Counties in US") + theme_map()  + scale_fill_continuous(low = "lightblue", high = "red", name = "Covid Cases",label = scales::comma) + theme(plot.title=element_text(size=10,face="bold")) 
+```
+
+```{r}
+ggplot(us_county_covid, aes(x = long, y = lat, group = group, fill = deaths)) + geom_polygon(color = "black", size = 0.25) +coord_map(projection = "lambert", lat0 = 30, lat1 = 40) +labs(title = "Covid Deaths by Counties in US") + theme_map() + scale_fill_continuous(low = "lightyellow", high = "darkorange", name = "Covid Deaths",label = scales::comma) + theme(plot.title=element_text(size=10,face="bold")) 
+```
+
+
+**Conclusion for 1 and 2: From above map plots of covid cases and covid deaths we can say that in most counties of US, the count of both cases and death is similar i.e. on the similar scale but for a few counties the count is higher than the average.**
+
+
+### Question 3
+
+```{r }
+ggplot(covid, aes(x=cases, y=deaths, label = county)) +
+  geom_text(aes(label=ifelse(cases>100000,as.character(county),'')),hjust=0,vjust=0) +
+  geom_point(color = 'red') + xlab('Covid Cases') + ylab('Covid Deaths') + ggtitle('Covid Deaths vs Covid Cases with labels for county with Cases > 100000') + xlim(0,400000) + theme(plot.title=element_text(size=11,face="bold")) 
+```
+
+
+**Conclusion: Here we can see that there is definitely a positive correlation between covid cases and covid deaths. For majority of the counties, the trend is same i.e. as the cases increases there is an increase in the deaths, as seen in the the clutter at the bottom left corner. From the graph we can tell that counties like Dallas, Harris ,Cook, Los Angeles,New York etc have high number of covid cases that might also be because of their high population densities as they are crowded places. New York City here is an outlier because the number of covid deaths is substantially high as compared to other counties. Also, one more thing to note, even though Los Angeles has greater number of covid cases than New York City, it has less number of deaths.** 
